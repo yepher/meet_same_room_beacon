@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import React, { Suspense, useState } from 'react';
-import { encodePassphrase, generateRoomId, randomString } from '@/lib/client-utils';
+import React, { Suspense, useState, useEffect } from 'react';
+import { encodePassphrase, generateRoomId, randomString, startUltrasonicTransmission, detectUltrasonic } from '@/lib/client-utils';
 import styles from '../styles/Home.module.css';
 
 function Tabs(props: React.PropsWithChildren<{}>) {
@@ -52,6 +52,43 @@ function DemoMeetingTab(props: { label: string }) {
       router.push(`/rooms/${generateRoomId()}`);
     }
   };
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_ULTRASONIC_DETECTION_ENABLED === 'true') {
+      let stopTransmit: () => void;
+      let detectionInterval: NodeJS.Timeout;
+
+      // Request audio context after user interaction
+      const handleFirstClick = async () => {
+        try {
+          stopTransmit = startUltrasonicTransmission();
+          
+          detectionInterval = setInterval(async () => {
+            try {
+              const detected = await detectUltrasonic();
+              if (detected) {
+                console.log('Local client detected!');
+                // Add actual unsubscription logic here
+              }
+            } catch (err) {
+              console.error('Detection error:', err);
+            }
+          }, 1000); // Faster detection interval
+        } catch (err) {
+          console.error('Ultrasonic init error:', err);
+        }
+      };
+
+      window.addEventListener('click', handleFirstClick, { once: true });
+      
+      return () => {
+        window.removeEventListener('click', handleFirstClick);
+        if (stopTransmit) stopTransmit();
+        if (detectionInterval) clearInterval(detectionInterval);
+      };
+    }
+  }, []);
+
   return (
     <div className={styles.tabContent}>
       <p style={{ margin: 0 }}>Try LiveKit Meet for free with our live demo project.</p>

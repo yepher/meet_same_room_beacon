@@ -10,6 +10,7 @@ import {
 } from '@livekit/components-react';
 import { useKrispNoiseFilter } from '@livekit/components-react/krisp';
 import styles from '../styles/SettingsMenu.module.css';
+import { startUltrasonicTransmission, detectUltrasonic } from '@/lib/client-utils';
 
 /**
  * @alpha
@@ -82,6 +83,18 @@ export function SettingsMenu(props: SettingsMenuProps) {
     }
   };
 
+  const [isTransmitting, setIsTransmitting] = React.useState(false);
+  const [transmitStop, setTransmitStop] = React.useState<(() => void) | null>(null);
+  const [isDetecting, setIsDetecting] = React.useState(false);
+
+  React.useEffect(() => {
+    return () => {
+      if (transmitStop) {
+        transmitStop();
+      }
+    };
+  }, [transmitStop]);
+
   return (
     <div className="settings-menu" style={{ width: '100%' }} {...props}>
       <div className={styles.tabs}>
@@ -153,6 +166,55 @@ export function SettingsMenu(props: SettingsMenuProps) {
                 disabled={isNoiseFilterPending}
               ></input>
             </section>
+            {process.env.NEXT_PUBLIC_ULTRASONIC_DETECTION_ENABLED === 'true' && (
+              <section>
+                <h3>Local Client Detection</h3>
+                <div className={styles.ultrasonicControls}>
+                  {/* Transmit Button */}
+                  <button
+                    onClick={() => {
+                      if (!isTransmitting) {
+                        const stop = startUltrasonicTransmission();
+                        setTransmitStop(() => stop);
+                      } else {
+                        transmitStop?.();
+                        setTransmitStop(null);
+                      }
+                      setIsTransmitting(!isTransmitting);
+                    }}
+                    className={isTransmitting ? styles.activeTransmit : ''}
+                  >
+                    {isTransmitting ? 'Stop Transmitting Tone' : 'Transmit Test Tone'}
+                  </button>
+
+                  {/* Detect Button */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        setIsDetecting(true);
+                        const detected = await Promise.race([
+                          detectUltrasonic(),
+                          new Promise((_, reject) => setTimeout(() => reject('Timeout (10s)'), 10000))
+                        ]);
+
+                        if (detected) {
+                          alert('Local client detected! TODO: Identify same-room participant and unsubscribe from their audio stream');
+                        } else {
+                          alert('No local clients detected');
+                        }
+                      } catch (err) {
+                        alert(`⚠️ Detection failed: ${err}`);
+                      } finally {
+                        setIsDetecting(false);
+                      }
+                    }}
+                    disabled={isDetecting}
+                  >
+                    {isDetecting ? 'Scanning for Tones...' : 'Detect Local Clients'}
+                  </button>
+                </div>
+              </section>
+            )}
           </>
         )}
         {activeTab === 'recording' && (

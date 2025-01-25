@@ -21,3 +21,14 @@
 .tabs > .tab[aria-pressed='true'] {
   border-color: var(--lk-accent-bg);
 }
+
+.ultrasonicControls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.activeTransmit {
+  background-color: #4CAF50;
+  border-color: #45a049;
+}
